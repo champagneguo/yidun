@@ -3,7 +3,7 @@ import json
 import os
 import random
 import re
-from urllib import parse
+
 
 import cv2
 import execjs
@@ -11,15 +11,18 @@ import numpy as np
 import requests
 from PIL import Image, ImageDraw
 from matplotlib import pyplot
-
+import urllib
 from config import yidun_id, yidun_referer
+import sys
+reload(sys)
+sys.setdefaultencoding('utf-8')
 
 img_dir = 'images/'
 
 
 def load_js(js_path):
     js_content = ''
-    with open(js_path, 'r', encoding='utf-8', errors='ignore') as w:
+    with open(js_path, 'r') as w:
         js_content += w.read()
     ctx = execjs.compile(js_content, cwd="js")
     return ctx
@@ -84,7 +87,7 @@ class yidun_crack(object):
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36'
             }
         if (params is not None):
-            params = parse.urlencode(params)
+            params = urllib.urlencode(params)
             url += '?' + params
         for i in range(self.retry_times):
             try:
