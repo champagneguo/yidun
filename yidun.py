@@ -145,9 +145,11 @@ class yidun_crack(object):
             json_data = json.loads(content)
             if json_data['data']['type'] == self.type:
                 self.token = json_data['data']['token']
-                print('滑块验证码', self.token)
+                print('token:', self.token)
                 self.bg_img_path = self.download_img(json_data['data']['bg'][0])
+                print("bg_img_path:",self.bg_img_path)
                 self.front_img_path = self.download_img(json_data['data']['front'][0])
+                print("front_img_path:",self.front_img_path)
                 self.total += 1
                 break
             else:
@@ -173,13 +175,40 @@ class yidun_crack(object):
                 pass
         raise Exception('img download Exception')
 
+    def show_image(self,name):
+        '''展示圈出来的位置'''
+        cv2.imshow('Show', name)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
+    def _tran_canny(self,image):
+        """消除噪声"""
+        image = cv2.GaussianBlur(image, (3, 3), 0)
+        return cv2.Canny(image, 50, 150)
+
+    def detect_displacement(self):
+        """detect displacement"""
+        # # 参数0是灰度模式
+        image = cv2.imread(self.front_img_path, 0)
+        template = cv2.imread(self.bg_img_path, 0)
+
+        # 寻找最佳匹配
+        res = cv2.matchTemplate(self._tran_canny(image), self._tran_canny(template), cv2.TM_CCOEFF_NORMED)
+        # 最小值，最大值，并得到最小值, 最大值的索引
+        min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
+
+        top_left = max_loc[0]  # 横坐标
+        self.draw_line(top_left)
+        return top_left + 10
+
+
     def tell_location(self):
         """
         识别缺口位置(@link:https://www.jianshu.com/p/f12679a63b8d)
         """
-        img_rgb = cv2.imread(self.bg_img_path)
+        img_rgb = cv2.imread(self.front_img_path)
         img_gray = cv2.cvtColor(img_rgb, cv2.COLOR_BGR2GRAY)
-        template = cv2.imread(self.front_img_path, 0)
+        template = cv2.imread(self.bg_img_path, 0)
         res = cv2.matchTemplate(img_gray, template, cv2.TM_CCOEFF_NORMED)
         # 使用二分法查找阈值的精确值
         L = 0
@@ -205,8 +234,8 @@ class yidun_crack(object):
                 R -= (R - L) / 2
         distance = int(start)
         self.draw_line(distance)
-        os.remove(self.front_img_path)
-        os.remove(self.bg_img_path)
+        # os.remove(self.front_img_path)
+        # os.remove(self.bg_img_path)
         # 通过跟踪发现，最终的轨迹落点x轴位置会大10px
         return distance + 10
 
@@ -302,6 +331,7 @@ class yidun_crack(object):
         content = self.requests_get(url=url, params=params)
         content = re.findall('\((.*?)\)', content)[0]
         json_data = json.loads(content)
+        print("result:",json_data)
         if 'data' in json_data and json_data['data']['result']:
             self.success += 1
             print('校验成功，validate：', json_data['data']['validate'])
@@ -325,12 +355,14 @@ class yidun_crack(object):
     def run(self, ip=None):
         self.ip = ip
         self.get_yzm()
-        distance = self.tell_location()
+        # distance = self.tell_location()
+        distance = self.detect_displacement()
+        print("distance:",distance)
         tracedata = self.generate_tracedata(distance)
-        print(tracedata)
-        self.draw_tracks(tracedata)
+        print("tracedata:",tracedata)
+        # self.draw_tracks(tracedata)
         encrypt_data = encrypt_all_tracedata(yidun.token, tracedata)
-        # print(encrypt_data)
+        print("encrypt_data:",encrypt_data)
         self.verify_yzm(encrypt_data)
 
     def __del__(self):
